@@ -109,7 +109,7 @@ export const SiteConfiguration = () => {
 
             <input
               style={inputStyle}
-              type="password"
+              type="text"
               value={appCode}
               onChange={(event) => setAppCode(event.target.value)}
               placeholder={
@@ -118,7 +118,6 @@ export const SiteConfiguration = () => {
                   : "Enter your Endtest App Code"
               }
               required={!siteSettings.data?.hasAppCode}
-              autoComplete="new-password"
             />
           </label>
 
