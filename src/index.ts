@@ -430,7 +430,7 @@ extension.addBuildEventHandler(
       process.env["ENDTEST_API_REQUEST"]?.trim();
 
     if (!appId || !appCode || !apiRequest) {
-      utils.build.failPlugin(
+      utils.build.failBuild(
         "Endtest is enabled, but its App ID, App Code, or API request is missing.",
       );
       return;
@@ -558,7 +558,7 @@ extension.addBuildEventHandler(
           text: `Execution hash: ${hash}\nNo final result was returned after ${numberOfLoops} checks.`,
         });
 
-        utils.build.failPlugin(
+        utils.build.failBuild(
           `Endtest execution ${hash} did not finish within the configured polling period.`,
         );
 
@@ -594,7 +594,7 @@ extension.addBuildEventHandler(
           text: details.text,
         });
 
-        utils.build.failPlugin(
+        utils.build.failBuild(
           `Endtest execution ${hash} reported ${failed} failed tests and ${errors} execution errors.`,
         );
 
@@ -619,7 +619,7 @@ extension.addBuildEventHandler(
         `Endtest integration error: ${normalizedError.message}`,
       );
 
-      utils.build.failPlugin(
+      utils.build.failBuild(
         "The Endtest execution could not be completed.",
         {
           error: normalizedError,
