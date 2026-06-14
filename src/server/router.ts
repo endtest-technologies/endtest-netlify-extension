@@ -146,19 +146,12 @@ export const appRouter = router({
             });
 
             if (input.appCode) {
-              await client.createOrUpdateVariable({
-                accountId: teamId,
-                siteId,
-                key: ENDTEST_APP_CODE,
-                isSecret: true,
-                scopes: ["builds"],
-                value: {
-                  dev: input.appCode,
-                  production: input.appCode,
-                  deployPreview: input.appCode,
-                  branchDeploys: input.appCode,
-                },
-              });
+		await client.createOrUpdateVariable({
+ 			accountId: teamId,
+ 			 siteId,
+ 			 key: ENDTEST_APP_CODE,
+ 			 value: input.appCode,
+		});   
             }
 
             await client.createOrUpdateVariable({
