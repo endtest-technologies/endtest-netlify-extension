@@ -1,5 +1,3 @@
-![Endtest logo](/assets/endtest-logo.png)
-
 # Endtest
 
 [Endtest](https://endtest.io/) is a cloud platform for creating, running, and maintaining automated web and mobile tests.
