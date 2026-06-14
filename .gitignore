@@ -1,3 +1,10 @@
 .cache
 .ntli
 node_modules
+
+node_modules/
+.ntli/
+.netlify/
+.env
+*.backup
+*.before-*

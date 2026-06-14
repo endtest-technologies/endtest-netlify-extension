@@ -1,7 +1,6 @@
 config:
   slug: endtest
-  name: endtest
+  name: Endtest
   ui:
     surfaces:
-      - extension-team-configuration
       - extension-top-level-site-configuration

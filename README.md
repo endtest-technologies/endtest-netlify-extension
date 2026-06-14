@@ -1,19 +1,56 @@
-# Netlify Extension
+# Endtest Netlify Extension
 
-This extension is created using the [Netlify SDK](https://sdk.netlify.com/get-started/introduction/). It is a boilerplate for creating a new extension.
+The official Netlify extension for running Endtest automated tests after successful Netlify deployments.
 
-## Scripts
+## Features
 
-These are some common scripts you will use when developing your extension. If you want to know what else is possible, [check out the documentation](https://developers.netlify.com/sdk/netlify-sdk-utility-tools-reference/).
+* Runs any dynamically supplied Endtest API request
+* Uses each customer's own Endtest App ID and App Code
+* Supports project-specific configuration
+* Supports `{{NETLIFY_DEPLOY_URL}}` replacement
+* Polls Endtest until the execution finishes
+* Displays execution results in the Netlify deploy summary
+* Reports failed assertions and execution errors
 
-### Build
+## Local development
 
-This builds the extension into a `.ntli` folder. This is the folder that Netlify uses to run the extension.
+Install dependencies:
+
+```bash
+npm install
+```
+
+Build the extension:
 
 ```bash
 npm run build
 ```
 
-## Publish
+Start the extension development server:
 
-Are you ready to deploy and publish your extension? Check out our documentation on [publishing your extension](https://developers.netlify.com/sdk/publish/).
+```bash
+npm run dev
+```
+
+## Local build handler testing
+
+Create a separate linked Netlify test project and add the local extension to its `netlify.toml`:
+
+```toml
+[[integrations]]
+name = "endtest"
+
+[integrations.dev]
+path = "../endtest-netlify-extension"
+```
+
+Then run:
+
+```bash
+netlify build --context=dev
+```
+
+## License
+
+Copyright Endtest. All rights reserved.
+
