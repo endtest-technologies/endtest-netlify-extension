@@ -98,9 +98,7 @@ Disabling the extension stops new Endtest executions for that project without de
 
 ## Important limitation
 
-Endtest runs after the Netlify deployment has completed.
-
-A failed Endtest execution is shown as an extension failure in the Netlify deploy summary, but it does not remove, cancel, or roll back the deployment that has already completed.
+Endtest runs after the Netlify deployment has completed. If Endtest reports failed assertions or execution errors, the extension is marked as failed in the deploy log, but the completed deployment remains live and is not removed, canceled, or rolled back.
 
 ## Security
 
