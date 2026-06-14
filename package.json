@@ -1,0 +1,39 @@
+{
+  "name": "endtest",
+  "version": "0.0.1",
+  "license": "UNLICENSED",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "netlify-extension build",
+    "dev": "netlify-extension dev",
+    "dev:open": "netlify-extension dev --open"
+  },
+  "dependencies": {
+    "@netlify/sdk": "^5.0.4",
+    "@netlify/functions": "^5.3.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@trpc/client": "^11.4.3",
+    "@trpc/server": "^11.4.3",
+    "@trpc/react-query": "^11.4.3",
+    "@tanstack/react-query": "^5.62.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@netlify/netlify-plugin-netlify-extension": "1.2.2",
+    "typescript": "6.0.3",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@tsconfig/node18": "18.2.6",
+    "@tsconfig/recommended": "1.0.13",
+    "@tsconfig/strictest": "2.0.8",
+    "@tsconfig/vite-react": "8.0.6",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.19",
+    "autoprefixer": "^10.4.7",
+    "tailwindcss": "^3.4.3",
+    "netlify-cli": "26.1.0"
+  }
+}
