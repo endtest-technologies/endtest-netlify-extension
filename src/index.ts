@@ -609,23 +609,32 @@ extension.addBuildEventHandler(
       });
 
       console.log(details.text);
-    } catch (error) {
-      const normalizedError =
-        error instanceof Error
-          ? error
-          : new Error(String(error));
+} catch (error) {
+  const normalizedError =
+    error instanceof Error
+      ? error
+      : new Error(String(error));
 
-      console.error(
-        `Endtest integration error: ${normalizedError.message}`,
-      );
+  if (
+    normalizedError.message.startsWith(
+      "Endtest execution ",
+    )
+  ) {
+    throw normalizedError;
+  }
 
-      utils.build.failPlugin(
-        "The Endtest execution could not be completed.",
-        {
-          error: normalizedError,
-        },
-      );
-    }
+  console.error(
+    `Endtest integration error: ${normalizedError.message}`,
+  );
+
+  utils.build.failPlugin(
+    "The Endtest execution could not be completed.",
+    {
+      error: normalizedError,
+    },
+  );
+}
+
   },
 );
 
