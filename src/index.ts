@@ -132,34 +132,116 @@ function readCount(
   return null;
 }
 
-function extractHash(responseText: string): string | null {
+const HASH_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
+
+function normalizeHashes(value: unknown): string[] {
+  const values = Array.isArray(value)
+    ? value
+    : typeof value === "string"
+      ? value.split(",")
+      : [value];
+
+  const hashes = values
+    .map((item) => {
+      if (
+        typeof item === "string" ||
+        typeof item === "number"
+      ) {
+        return String(item)
+          .trim()
+          .replace(/^["']|["']$/g, "");
+      }
+
+      return "";
+    })
+    .filter((item) => HASH_PATTERN.test(item));
+
+  return [...new Set(hashes)];
+}
+
+function extractHashes(responseText: string): string[] {
   const parsed = parseJson(responseText);
 
-  const hashFromJson = readText(parsed, [
-    "hash",
-    "execution_hash",
-    "executionHash",
-    "test_run_hash",
-    "testRunHash",
-  ]);
+  const directHashes = normalizeHashes(parsed);
 
-  if (hashFromJson) {
-    return hashFromJson;
+  if (directHashes.length > 0) {
+    return directHashes;
+  }
+
+  const hashesFromJson = normalizeHashes(
+    readValue(parsed, [
+      "hash",
+      "hashes",
+      "execution_hash",
+      "execution_hashes",
+      "executionHash",
+      "executionHashes",
+      "test_run_hash",
+      "test_run_hashes",
+      "testRunHash",
+      "testRunHashes",
+    ]),
+  );
+
+  if (hashesFromJson.length > 0) {
+    return hashesFromJson;
   }
 
   const trimmed = responseText
     .trim()
     .replace(/^["']|["']$/g, "");
 
-  if (/^[A-Za-z0-9_-]{16,128}$/.test(trimmed)) {
-    return trimmed;
+  const plainHashes = normalizeHashes(trimmed);
+
+  if (plainHashes.length > 0) {
+    return plainHashes;
   }
 
-  const match = responseText.match(
-    /\b[a-fA-F0-9]{32,128}\b/,
-  );
+  const matches =
+    responseText.match(
+      /\b[A-Za-z0-9_-]{16,128}\b/g,
+    ) || [];
 
-  return match?.[0] || null;
+  return normalizeHashes(matches);
+}
+
+function getExecutionResults(
+  value: unknown,
+): JsonRecord[] {
+  if (Array.isArray(value)) {
+    return value.filter(isRecord);
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  for (const key of [
+    "results",
+    "executions",
+    "data",
+    "result",
+  ]) {
+    const nested = value[key];
+
+    if (Array.isArray(nested)) {
+      const records = nested.filter(isRecord);
+
+      if (records.length > 0) {
+        return records;
+      }
+    }
+
+    if (isRecord(nested)) {
+      const records = getExecutionResults(nested);
+
+      if (records.length > 0) {
+        return records;
+      }
+    }
+  }
+
+  return [value];
 }
 
 function isStillRunningText(responseText: string): boolean {
@@ -249,7 +331,7 @@ function buildResultsUrl(
   startUrl: URL,
   appId: string,
   appCode: string,
-  hash: string,
+  hashes: string[],
 ): URL {
   const url = new URL(
     `${startUrl.origin}${startUrl.pathname}`,
@@ -258,8 +340,8 @@ function buildResultsUrl(
   url.searchParams.set("action", "getResults");
   url.searchParams.set("appId", appId);
   url.searchParams.set("appCode", appCode);
-  url.searchParams.set("hash", hash);
-  url.searchParams.set("format", "json");
+  url.searchParams.set("hash", hashes.join(","));
+  url.searchParams.set("format", "json-light");
 
   const apiVersion =
     startUrl.searchParams.get("apiVersion");
@@ -397,6 +479,92 @@ function createResultDetails(
   };
 }
 
+function createCombinedResultDetails(
+  result: unknown,
+  hashes: string[],
+  deployUrl: string,
+): {
+  failed: number;
+  errors: number;
+  executionFailed: boolean;
+  executionCount: number;
+  text: string;
+} {
+  const executions = getExecutionResults(result);
+
+  if (executions.length === 0) {
+    throw new Error(
+      "Endtest returned no execution results.",
+    );
+  }
+
+  const details = executions.map(
+    (execution, index) =>
+      createResultDetails(
+        execution,
+        hashes[index] || hashes.join(","),
+        executions.length === 1 ? deployUrl : "",
+      ),
+  );
+
+  const failed = details.reduce(
+    (total, detail) =>
+      total + (detail.failed ?? 0),
+    0,
+  );
+
+  const errors = details.reduce(
+    (total, detail) =>
+      total + (detail.errors ?? 0),
+    0,
+  );
+
+  const executionFailed = details.some(
+    (detail) =>
+      (detail.failed ?? 0) > 0 ||
+      (detail.errors ?? 0) > 0 ||
+      statusIndicatesFailure(detail.status),
+  );
+
+  if (details.length === 1) {
+    return {
+      failed,
+      errors,
+      executionFailed,
+      executionCount: 1,
+      text: details[0].text,
+    };
+  }
+
+  const summaryLines = [
+    `Executions: ${details.length}`,
+    `Execution hashes: ${hashes.join(", ")}`,
+    deployUrl
+      ? `Netlify deployment: ${deployUrl}`
+      : null,
+    `Total failed: ${failed}`,
+    `Total errors: ${errors}`,
+  ].filter(
+    (line): line is string => Boolean(line),
+  );
+
+  const executionBlocks = details.map(
+    (detail, index) =>
+      `Execution ${index + 1} of ${details.length}\n${detail.text}`,
+  );
+
+  return {
+    failed,
+    errors,
+    executionFailed,
+    executionCount: details.length,
+    text: [
+      summaryLines.join("\n"),
+      ...executionBlocks,
+    ].join("\n\n"),
+  };
+}
+
 function statusIndicatesFailure(
   status: string | null,
 ): boolean {
@@ -483,9 +651,10 @@ extension.addBuildEventHandler(
       const startResponse =
         await requestText(startUrl);
 
-      const hash = extractHash(startResponse);
+      const hashes =
+        extractHashes(startResponse);
 
-      if (!hash) {
+      if (hashes.length === 0) {
         throw new Error(
           `Endtest did not return an execution hash. Response: ${startResponse.slice(
             0,
@@ -494,15 +663,23 @@ extension.addBuildEventHandler(
         );
       }
 
-      console.log(
-        `Endtest execution started with hash ${hash}.`,
-      );
+      if (hashes.length === 1) {
+        console.log(
+          `Endtest execution started with hash ${hashes[0]}.`,
+        );
+      } else {
+        console.log(
+          `Endtest started ${hashes.length} executions with hashes ${hashes.join(
+            ", ",
+          )}.`,
+        );
+      }
 
       const resultsUrl = buildResultsUrl(
         startUrl,
         appId,
         appCode,
-        hash,
+        hashes,
       );
 
       let finalResult: unknown | null = null;
@@ -523,7 +700,9 @@ extension.addBuildEventHandler(
 
         if (isStillRunningText(responseText)) {
           console.log(
-            "The Endtest execution is still running.",
+            hashes.length === 1
+              ? "The Endtest execution is still running."
+              : "One or more Endtest executions are still running.",
           );
           continue;
         }
@@ -539,9 +718,25 @@ extension.addBuildEventHandler(
           );
         }
 
-        if (isStillRunningJson(parsedResult)) {
+        const executionResults =
+          getExecutionResults(parsedResult);
+
+        const hasRunningExecution =
+          executionResults.some((execution) =>
+            isStillRunningJson(execution),
+          );
+
+        const hasMissingExecution =
+          executionResults.length < hashes.length;
+
+        if (
+          hasRunningExecution ||
+          hasMissingExecution
+        ) {
           console.log(
-            "The Endtest execution is still running.",
+            hashes.length === 1
+              ? "The Endtest execution is still running."
+              : `Received ${executionResults.length} of ${hashes.length} final Endtest results. Waiting for the remaining executions.`,
           );
           continue;
         }
@@ -550,52 +745,53 @@ extension.addBuildEventHandler(
         break;
       }
 
+      const hashList = hashes.join(",");
+
       if (finalResult === null) {
         utils.status.show({
           title: "Endtest",
           summary:
-            "The Endtest execution timed out",
-          text: `Execution hash: ${hash}\nNo final result was returned after ${numberOfLoops} checks.`,
+            hashes.length === 1
+              ? "The Endtest execution timed out"
+              : "The Endtest executions timed out",
+          text:
+            hashes.length === 1
+              ? `Execution hash: ${hashes[0]}
+No final result was returned after ${numberOfLoops} checks.`
+              : `Execution hashes: ${hashes.join(", ")}
+Not all executions returned a final result after ${numberOfLoops} checks.`,
         });
 
         utils.build.failPlugin(
-          `Endtest execution ${hash} did not finish within the configured polling period.`,
+          hashes.length === 1
+            ? `Endtest execution ${hashes[0]} did not finish within the configured polling period.`
+            : `Endtest executions ${hashList} did not finish within the configured polling period.`,
         );
 
         return;
       }
 
-      const details = createResultDetails(
-        finalResult,
-        hash,
-        deployUrl,
-      );
+      const details =
+        createCombinedResultDetails(
+          finalResult,
+          hashes,
+          deployUrl,
+        );
 
-      const failed =
-        details.failed !== null
-          ? details.failed
-          : 0;
-
-      const errors =
-        details.errors !== null
-          ? details.errors
-          : 0;
-
-      const executionFailed =
-        failed > 0 ||
-        errors > 0 ||
-        statusIndicatesFailure(details.status);
-
-      if (executionFailed) {
+      if (details.executionFailed) {
         utils.status.show({
           title: "Endtest",
           summary:
-            "The Endtest execution completed with failures",
+            details.executionCount === 1
+              ? "The Endtest execution completed with failures"
+              : `${details.executionCount} Endtest executions completed with failures`,
           text: details.text,
         });
 
         utils.build.failPlugin(
-          `Endtest execution ${hash} reported ${failed} failed tests and ${errors} execution errors.`,
+          details.executionCount === 1
+            ? `Endtest execution ${hashes[0]} reported ${details.failed} failed assertions and ${details.errors} execution errors.`
+            : `Endtest executions ${hashList} reported ${details.failed} failed assertions and ${details.errors} execution errors across ${details.executionCount} executions.`,
         );
 
         return;
@@ -604,7 +800,9 @@ extension.addBuildEventHandler(
       utils.status.show({
         title: "Endtest",
         summary:
-          "The Endtest execution completed successfully",
+          details.executionCount === 1
+            ? "The Endtest execution completed successfully"
+            : `${details.executionCount} Endtest executions completed successfully`,
         text: details.text,
       });
 
@@ -617,7 +815,7 @@ extension.addBuildEventHandler(
 
   if (
     normalizedError.message.startsWith(
-      "Endtest execution ",
+      "Endtest execution",
     )
   ) {
     throw normalizedError;
